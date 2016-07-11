@@ -56,7 +56,7 @@ class FixedRangeCounter : Countable {
         val threadPool = Executors.newFixedThreadPool(numberOfThreads);
         val numberOfPrimes = AtomicInteger();
 
-        for (i in 0L..numberOfThreads-1) {
+        for (i in 0L..numberOfThreads - 1) {
 
             val begin = i * (limit / 10) + 1
             val end = (i + 1) * (limit / 10);
@@ -81,14 +81,15 @@ class AtomicLongCounter : Countable {
         val numberOfPrimes = AtomicInteger();
         val threadPool = Executors.newFixedThreadPool(numberOfThreads);
 
-        for (i in 0L..numberOfThreads-1) {
+        for (i in 0L..numberOfThreads - 1) {
             threadPool.submit {
                 var j = counter.get()
+                println("Safe: $j")
                 while (j < limit) {
-                    j = counter.getAndIncrement()
                     if (isPrime(j)) {
                         numberOfPrimes.getAndIncrement()
                     }
+                    j = counter.getAndIncrement()
                 }
             }
         }
@@ -105,14 +106,15 @@ class NotThreadsafeCounter : Countable {
         val numberOfPrimes = AtomicInteger();
         val threadPool = Executors.newFixedThreadPool(numberOfThreads);
 
-        for (i in 0L..numberOfThreads-1) {
+        for (i in 0L..numberOfThreads - 1) {
             threadPool.submit {
                 var j = counter.get()
+                println("Safe: $j")
                 while (j < limit) {
-                    j = counter.getAndIncrement()
                     if (isPrime(j)) {
                         numberOfPrimes.getAndIncrement()
                     }
+                    j = counter.getAndIncrement()
                 }
             }
         }
@@ -131,14 +133,15 @@ class ThreadsafeCounter : Countable {
         val numberOfPrimes = AtomicInteger();
         val threadPool = Executors.newFixedThreadPool(numberOfThreads);
 
-        for (i in 0L..numberOfThreads-1) {
+        for (i in 0L..numberOfThreads - 1) {
             threadPool.submit {
                 var j = counter.get()
+                println("Safe: $j")
                 while (j < limit) {
-                    j = counter.getAndIncrement()
                     if (isPrime(j)) {
                         numberOfPrimes.getAndIncrement()
                     }
+                    j = counter.getAndIncrement()
                 }
             }
         }
