@@ -9,17 +9,17 @@ fun main(args: Array<String>) {
     val limit = Math.pow(10.0, 5.0).toLong()
     val numberOfThreads = 10
 
-    profileImplementation(limit, numberOfThreads, SingleThreadedPrimeCounter::class)
-    profileImplementation(limit, numberOfThreads, FixedRangePrimeCounter::class)
-    profileImplementation(limit, numberOfThreads, AtomicLongPrimeCounter::class)
-    profileImplementation(limit, numberOfThreads, UnsafeSharedCounterCounter::class)
-    profileImplementation(limit, numberOfThreads, SafeSharedCounterCounter::class)
+    profileImplementation(limit, numberOfThreads, SingleThreadedCounter::class)
+    profileImplementation(limit, numberOfThreads, FixedRangeCounter::class)
+    profileImplementation(limit, numberOfThreads, AtomicLongCounter::class)
+    profileImplementation(limit, numberOfThreads, NotThreadsafeCounter::class)
+    profileImplementation(limit, numberOfThreads, ThreadsafeCounter::class)
 
 }
 
 data class Measurement(val time: Long, val count: Int)
 
-fun profileImplementation(limit: Long, numberOfThreads: Int, clazz: KClass<out PrimeCounter>) {
+fun profileImplementation(limit: Long, numberOfThreads: Int, clazz: KClass<out Countable>) {
     try {
         val instance = clazz.constructors.first().call()
         val measurement = measureNanoTimeAndCount { instance.count(limit, numberOfThreads) }
@@ -35,11 +35,11 @@ fun measureNanoTimeAndCount(f: () -> Int): Measurement {
     return Measurement(time, count)
 }
 
-interface PrimeCounter {
+interface Countable {
     fun count(limit: Long, numberOfThreads: Int): Int
 }
 
-class SingleThreadedPrimeCounter : PrimeCounter {
+class SingleThreadedCounter : Countable {
 
     override fun count(limit: Long, numberOfThreads: Int): Int {
         val numberOfPrimes = AtomicInteger();
@@ -50,7 +50,7 @@ class SingleThreadedPrimeCounter : PrimeCounter {
     }
 }
 
-class FixedRangePrimeCounter : PrimeCounter {
+class FixedRangeCounter : Countable {
     override fun count(limit: Long, numberOfThreads: Int): Int {
 
         val threadPool = Executors.newFixedThreadPool(numberOfThreads);
@@ -75,7 +75,7 @@ class FixedRangePrimeCounter : PrimeCounter {
     }
 }
 
-class AtomicLongPrimeCounter : PrimeCounter {
+class AtomicLongCounter : Countable {
     override fun count(limit: Long, numberOfThreads: Int): Int {
         val counter = AtomicLong();
         val numberOfPrimes = AtomicInteger();
@@ -99,9 +99,9 @@ class AtomicLongPrimeCounter : PrimeCounter {
     }
 }
 
-class UnsafeSharedCounterCounter : PrimeCounter {
+class NotThreadsafeCounter : Countable {
     override fun count(limit: Long, numberOfThreads: Int): Int {
-        val counter = UnsafeSharedCounter()
+        val counter = NotThreadsafeLong()
         val numberOfPrimes = AtomicInteger();
         val threadPool = Executors.newFixedThreadPool(numberOfThreads);
 
@@ -123,11 +123,11 @@ class UnsafeSharedCounterCounter : PrimeCounter {
     }
 }
 
-class SafeSharedCounterCounter : PrimeCounter {
+class ThreadsafeCounter : Countable {
 
 
     override fun count(limit: Long, numberOfThreads: Int): Int {
-        val counter = SafeSharedCounter()
+        val counter = ThreadsafeLong()
         val numberOfPrimes = AtomicInteger();
         val threadPool = Executors.newFixedThreadPool(numberOfThreads);
 
@@ -169,7 +169,7 @@ fun isPrime(number: Long): Boolean {
     return true
 }
 
-class UnsafeSharedCounter {
+class NotThreadsafeLong {
     private var value: Long = 0
 
     fun get(): Long {
@@ -181,7 +181,7 @@ class UnsafeSharedCounter {
     }
 }
 
-class SafeSharedCounter {
+class ThreadsafeLong {
     private var value: Long = 0
 
     @Synchronized
