@@ -8,31 +8,32 @@ fun main(args: Array<String>) {
     val limit = Math.pow(10.0, 5.0)
     val numberOfThreads = 10
 
-    var time = measureNanoTime { printPrimeSingleThread(limit.toLong(), numberOfThreads) }
-    println("$time nanoseconds with single threaded implementation")
+    var count = 0;
+    var time = measureNanoTime { count = countPrimesSingleThreaded(limit.toLong(), numberOfThreads) }
+    println("$time nanoseconds with single threaded implementation found $count primes")
 
-    time = measureNanoTime { printPrimeFixedRange(limit.toLong(), numberOfThreads) }
-    println("$time nanoseconds with fixed range")
+    time = measureNanoTime { count = countPrimesFixedRange(limit.toLong(), numberOfThreads) }
+    println("$time nanoseconds with fixed range $count primes")
 
-    time = measureNanoTime { printPrimeSharedCounter(limit.toLong(), numberOfThreads) }
-    println("$time nanoseconds with shared counter");
+    time = measureNanoTime { count = countPrimesAtomicGetAndIncrement(limit.toLong(), numberOfThreads) }
+    println("$time nanoseconds with shared counter found $count primes");
 
-    time = measureNanoTime { printPrimeUnsafeSharedCounter(limit.toLong(), numberOfThreads) }
-    println("$time nanoseconds with unsafe shared counter");
+    time = measureNanoTime { count = countPrimesUnsafeSharedCounter(limit.toLong(), numberOfThreads) }
+    println("$time nanoseconds with unsafe shared counter found $count primes");
 
-    time = measureNanoTime { printPrimeSafeSharedCounter(limit.toLong(), numberOfThreads) }
-    println("$time nanoseconds with safe shared counter");
+    time = measureNanoTime { count = countPrimesSafeSharedCounter(limit.toLong(), numberOfThreads) }
+    println("$time nanoseconds with safe shared counter found $count primes");
 }
 
-fun printPrimeSingleThread(limit: Long, numberOfThreads: Int) {
+fun countPrimesSingleThreaded(limit: Long, numberOfThreads: Int): Int {
     val numberOfPrimes = AtomicInteger();
     for (i in 0..limit) {
         if (isPrime(i)) numberOfPrimes.getAndIncrement()
     }
-    println(numberOfPrimes)
+    return numberOfPrimes.get()
 }
 
-fun printPrimeFixedRange(limit: Long, numberOfThreads: Int) {
+fun countPrimesFixedRange(limit: Long, numberOfThreads: Int): Int {
 
     val threadPool = Executors.newFixedThreadPool(numberOfThreads);
     val numberOfPrimes = AtomicInteger();
@@ -52,10 +53,10 @@ fun printPrimeFixedRange(limit: Long, numberOfThreads: Int) {
     }
     threadPool.shutdown()
     threadPool.awaitTermination(1, TimeUnit.HOURS);
-    println(numberOfPrimes)
+    return numberOfPrimes.get()
 }
 
-fun printPrimeSharedCounter(limit: Long, numberOfThreads: Int) {
+fun countPrimesAtomicGetAndIncrement(limit: Long, numberOfThreads: Int): Int {
 
     val counter = AtomicLong();
     val numberOfPrimes = AtomicInteger();
@@ -75,10 +76,10 @@ fun printPrimeSharedCounter(limit: Long, numberOfThreads: Int) {
 
     threadPool.shutdown()
     threadPool.awaitTermination(1, TimeUnit.HOURS);
-    println(numberOfPrimes)
+    return numberOfPrimes.get()
 }
 
-fun printPrimeUnsafeSharedCounter(limit: Long, numberOfThreads: Int) {
+fun countPrimesUnsafeSharedCounter(limit: Long, numberOfThreads: Int): Int {
     val counter = UnsafeSharedCounter()
     val numberOfPrimes = AtomicInteger();
     val threadPool = Executors.newFixedThreadPool(numberOfThreads);
@@ -97,11 +98,10 @@ fun printPrimeUnsafeSharedCounter(limit: Long, numberOfThreads: Int) {
 
     threadPool.shutdown()
     threadPool.awaitTermination(1, TimeUnit.HOURS);
-    println(numberOfPrimes)
-
+    return numberOfPrimes.get()
 }
 
-fun printPrimeSafeSharedCounter(limit: Long, numberOfThreads: Int) {
+fun countPrimesSafeSharedCounter(limit: Long, numberOfThreads: Int): Int {
     val counter = SafeSharedCounter()
     val numberOfPrimes = AtomicInteger();
     val threadPool = Executors.newFixedThreadPool(numberOfThreads);
@@ -120,7 +120,7 @@ fun printPrimeSafeSharedCounter(limit: Long, numberOfThreads: Int) {
 
     threadPool.shutdown()
     threadPool.awaitTermination(1, TimeUnit.HOURS);
-    println(numberOfPrimes)
+    return numberOfPrimes.get()
 
 }
 
@@ -157,21 +157,14 @@ class UnsafeSharedCounter {
 
 class SafeSharedCounter {
     private var value: Long = 0
-//    private var value = AtomicLong()
 
     @Synchronized
     fun get(): Long {
-//        synchronized(this, { return value })
-//        return value.get()
         return value
     }
 
     @Synchronized
     fun getAndIncrement(): Long {
-//        synchronized(this, {
-//            return value++;
-//        })
-//        return value.getAndIncrement()
         return value++;
     }
 }
