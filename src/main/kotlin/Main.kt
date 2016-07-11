@@ -2,126 +2,152 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.reflect.KClass
 import kotlin.system.measureNanoTime
 
 fun main(args: Array<String>) {
-    val limit = Math.pow(10.0, 5.0)
+    val limit = Math.pow(10.0, 5.0).toLong()
     val numberOfThreads = 10
 
+    profileImplementation(limit, numberOfThreads, SingleThreadedPrimeCounter::class)
+    profileImplementation(limit, numberOfThreads, FixedRangePrimeCounter::class)
+    profileImplementation(limit, numberOfThreads, AtomicLongPrimeCounter::class)
+    profileImplementation(limit, numberOfThreads, UnsafeSharedCounterCounter::class)
+    profileImplementation(limit, numberOfThreads, SafeSharedCounterCounter::class)
+
+}
+
+data class Measurement(val time: Long, val count: Int)
+
+fun profileImplementation(limit: Long, numberOfThreads: Int, clazz: KClass<out PrimeCounter>) {
+    try {
+        val instance = clazz.constructors.first().call()
+        val measurement = measureNanoTimeAndCount { instance.count(limit, numberOfThreads) }
+        println("Found ${measurement.count} primes in ${measurement.time} nanoseconds with $clazz");
+    } catch (e: Exception) {
+        throw Exception("Can't instantiate class $clazz via reflection", e)
+    }
+}
+
+fun measureNanoTimeAndCount(f: () -> Int): Measurement {
     var count = 0;
-    var time = measureNanoTime { count = countPrimesSingleThreaded(limit.toLong(), numberOfThreads) }
-    println("$time nanoseconds with single threaded implementation found $count primes")
-
-    time = measureNanoTime { count = countPrimesFixedRange(limit.toLong(), numberOfThreads) }
-    println("$time nanoseconds with fixed range $count primes")
-
-    time = measureNanoTime { count = countPrimesAtomicGetAndIncrement(limit.toLong(), numberOfThreads) }
-    println("$time nanoseconds with shared counter found $count primes");
-
-    time = measureNanoTime { count = countPrimesUnsafeSharedCounter(limit.toLong(), numberOfThreads) }
-    println("$time nanoseconds with unsafe shared counter found $count primes");
-
-    time = measureNanoTime { count = countPrimesSafeSharedCounter(limit.toLong(), numberOfThreads) }
-    println("$time nanoseconds with safe shared counter found $count primes");
+    val time = measureNanoTime { count = f() }
+    return Measurement(time, count)
 }
 
-fun countPrimesSingleThreaded(limit: Long, numberOfThreads: Int): Int {
-    val numberOfPrimes = AtomicInteger();
-    for (i in 0..limit) {
-        if (isPrime(i)) numberOfPrimes.getAndIncrement()
-    }
-    return numberOfPrimes.get()
+interface PrimeCounter {
+    fun count(limit: Long, numberOfThreads: Int): Int
 }
 
-fun countPrimesFixedRange(limit: Long, numberOfThreads: Int): Int {
+class SingleThreadedPrimeCounter : PrimeCounter {
 
-    val threadPool = Executors.newFixedThreadPool(numberOfThreads);
-    val numberOfPrimes = AtomicInteger();
-
-    for (i in 0L..9L) {
-
-        val begin = i * (limit / 10) + 1
-        val end = (i + 1) * (limit / 10);
-
-        threadPool.submit {
-            for (number in begin..end) {
-                if (isPrime(number)) {
-                    numberOfPrimes.getAndIncrement()
-                };
-            }
+    override fun count(limit: Long, numberOfThreads: Int): Int {
+        val numberOfPrimes = AtomicInteger();
+        for (i in 0..limit) {
+            if (isPrime(i)) numberOfPrimes.getAndIncrement()
         }
+        return numberOfPrimes.get()
     }
-    threadPool.shutdown()
-    threadPool.awaitTermination(1, TimeUnit.HOURS);
-    return numberOfPrimes.get()
 }
 
-fun countPrimesAtomicGetAndIncrement(limit: Long, numberOfThreads: Int): Int {
+class FixedRangePrimeCounter : PrimeCounter {
+    override fun count(limit: Long, numberOfThreads: Int): Int {
 
-    val counter = AtomicLong();
-    val numberOfPrimes = AtomicInteger();
-    val threadPool = Executors.newFixedThreadPool(numberOfThreads);
+        val threadPool = Executors.newFixedThreadPool(numberOfThreads);
+        val numberOfPrimes = AtomicInteger();
 
-    for (i in 0L..9L) {
-        threadPool.submit {
-            var j = counter.get()
-            while (j < limit) {
-                j = counter.getAndIncrement()
-                if (isPrime(j)) {
-                    numberOfPrimes.getAndIncrement()
+        for (i in 0L..9L) {
+
+            val begin = i * (limit / 10) + 1
+            val end = (i + 1) * (limit / 10);
+
+            threadPool.submit {
+                for (number in begin..end) {
+                    if (isPrime(number)) {
+                        numberOfPrimes.getAndIncrement()
+                    };
                 }
             }
         }
+        threadPool.shutdown()
+        threadPool.awaitTermination(1, TimeUnit.HOURS);
+        return numberOfPrimes.get()
     }
-
-    threadPool.shutdown()
-    threadPool.awaitTermination(1, TimeUnit.HOURS);
-    return numberOfPrimes.get()
 }
 
-fun countPrimesUnsafeSharedCounter(limit: Long, numberOfThreads: Int): Int {
-    val counter = UnsafeSharedCounter()
-    val numberOfPrimes = AtomicInteger();
-    val threadPool = Executors.newFixedThreadPool(numberOfThreads);
+class AtomicLongPrimeCounter : PrimeCounter {
+    override fun count(limit: Long, numberOfThreads: Int): Int {
+        val counter = AtomicLong();
+        val numberOfPrimes = AtomicInteger();
+        val threadPool = Executors.newFixedThreadPool(numberOfThreads);
 
-    for (i in 0L..9L) {
-        threadPool.submit {
-            var j = counter.get()
-            while (j < limit) {
-                j = counter.getAndIncrement()
-                if (isPrime(j)) {
-                    numberOfPrimes.getAndIncrement()
+        for (i in 0L..9L) {
+            threadPool.submit {
+                var j = counter.get()
+                while (j < limit) {
+                    j = counter.getAndIncrement()
+                    if (isPrime(j)) {
+                        numberOfPrimes.getAndIncrement()
+                    }
                 }
             }
         }
-    }
 
-    threadPool.shutdown()
-    threadPool.awaitTermination(1, TimeUnit.HOURS);
-    return numberOfPrimes.get()
+        threadPool.shutdown()
+        threadPool.awaitTermination(1, TimeUnit.HOURS);
+        return numberOfPrimes.get()
+    }
 }
 
-fun countPrimesSafeSharedCounter(limit: Long, numberOfThreads: Int): Int {
-    val counter = SafeSharedCounter()
-    val numberOfPrimes = AtomicInteger();
-    val threadPool = Executors.newFixedThreadPool(numberOfThreads);
+class UnsafeSharedCounterCounter : PrimeCounter {
+    override fun count(limit: Long, numberOfThreads: Int): Int {
+        val counter = UnsafeSharedCounter()
+        val numberOfPrimes = AtomicInteger();
+        val threadPool = Executors.newFixedThreadPool(numberOfThreads);
 
-    for (i in 0L..9L) {
-        threadPool.submit {
-            var j = counter.get()
-            while (j < limit) {
-                j = counter.getAndIncrement()
-                if (isPrime(j)) {
-                    numberOfPrimes.getAndIncrement()
+        for (i in 0L..9L) {
+            threadPool.submit {
+                var j = counter.get()
+                while (j < limit) {
+                    j = counter.getAndIncrement()
+                    if (isPrime(j)) {
+                        numberOfPrimes.getAndIncrement()
+                    }
                 }
             }
         }
+
+        threadPool.shutdown()
+        threadPool.awaitTermination(1, TimeUnit.HOURS);
+        return numberOfPrimes.get()
     }
+}
 
-    threadPool.shutdown()
-    threadPool.awaitTermination(1, TimeUnit.HOURS);
-    return numberOfPrimes.get()
+class SafeSharedCounterCounter : PrimeCounter {
 
+
+    override fun count(limit: Long, numberOfThreads: Int): Int {
+        val counter = SafeSharedCounter()
+        val numberOfPrimes = AtomicInteger();
+        val threadPool = Executors.newFixedThreadPool(numberOfThreads);
+
+        for (i in 0L..9L) {
+            threadPool.submit {
+                var j = counter.get()
+                while (j < limit) {
+                    j = counter.getAndIncrement()
+                    if (isPrime(j)) {
+                        numberOfPrimes.getAndIncrement()
+                    }
+                }
+            }
+        }
+
+        threadPool.shutdown()
+        threadPool.awaitTermination(1, TimeUnit.HOURS);
+        return numberOfPrimes.get()
+
+    }
 }
 
 fun isPrime(number: Long): Boolean {
