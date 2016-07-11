@@ -35,10 +35,18 @@ fun measureNanoTimeAndCount(f: () -> Int): Measurement {
     return Measurement(time, count)
 }
 
+/**
+ * Simple interface for the different implementations
+ */
 interface Countable {
     fun count(limit: Long, numberOfThreads: Int): Int
 }
 
+/**
+ * This implementation iterates over all numbers between
+ * 0 and limit and checks whether the number is a prime
+ * sequentially
+ */
 class SingleThreadedCounter : Countable {
 
     override fun count(limit: Long, numberOfThreads: Int): Int {
@@ -50,6 +58,11 @@ class SingleThreadedCounter : Countable {
     }
 }
 
+/**
+ * This implementation splits the input set (0 .. limit) in #threads
+ * identically sized splits. Each split then gets checked for primes
+ * by another threads
+ */
 class FixedRangeCounter : Countable {
     override fun count(limit: Long, numberOfThreads: Int): Int {
 
@@ -75,6 +88,11 @@ class FixedRangeCounter : Countable {
     }
 }
 
+/**
+ * This implementation provides a counter using an AtomicLong as a shared
+ * counter. Each thread picks the next number by calling getAndIncrement()
+ * on the shared counter until the limit is reached
+ */
 class AtomicLongCounter : Countable {
     override fun count(limit: Long, numberOfThreads: Int): Int {
         val counter = AtomicLong();
@@ -84,7 +102,6 @@ class AtomicLongCounter : Countable {
         for (i in 0L..numberOfThreads - 1) {
             threadPool.submit {
                 var j = counter.get()
-                println("Safe: $j")
                 while (j < limit) {
                     if (isPrime(j)) {
                         numberOfPrimes.getAndIncrement()
@@ -100,6 +117,12 @@ class AtomicLongCounter : Countable {
     }
 }
 
+/**
+ * This implementation works the same like the AtomicLongCounter,
+ * but uses an unsafe custom counter implementation. This demonstrates
+ * how multithreading yields false results, because the number of primes
+ * produced by this Countable will probably be too high
+ */
 class NotThreadsafeCounter : Countable {
     override fun count(limit: Long, numberOfThreads: Int): Int {
         val counter = NotThreadsafeLong()
@@ -109,7 +132,6 @@ class NotThreadsafeCounter : Countable {
         for (i in 0L..numberOfThreads - 1) {
             threadPool.submit {
                 var j = counter.get()
-                println("Safe: $j")
                 while (j < limit) {
                     if (isPrime(j)) {
                         numberOfPrimes.getAndIncrement()
@@ -125,8 +147,11 @@ class NotThreadsafeCounter : Countable {
     }
 }
 
+/**
+ * This implementation works the same like the AtomicLongCounter
+ * but uses a custom threadsafe "AtomicLong" implementation
+ */
 class ThreadsafeCounter : Countable {
-
 
     override fun count(limit: Long, numberOfThreads: Int): Int {
         val counter = ThreadsafeLong()
@@ -136,7 +161,6 @@ class ThreadsafeCounter : Countable {
         for (i in 0L..numberOfThreads - 1) {
             threadPool.submit {
                 var j = counter.get()
-                println("Safe: $j")
                 while (j < limit) {
                     if (isPrime(j)) {
                         numberOfPrimes.getAndIncrement()
@@ -153,6 +177,11 @@ class ThreadsafeCounter : Countable {
     }
 }
 
+/**
+ * Check whether a number is a prime
+ * This is just some basic implementation grabbed from somewhere on
+ * the internet, but that's not the important party anyhow
+ */
 fun isPrime(number: Long): Boolean {
 
     if (number == 2L) return true
