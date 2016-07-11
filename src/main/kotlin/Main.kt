@@ -56,7 +56,7 @@ class FixedRangeCounter : Countable {
         val threadPool = Executors.newFixedThreadPool(numberOfThreads);
         val numberOfPrimes = AtomicInteger();
 
-        for (i in 0L..9L) {
+        for (i in 0L..numberOfThreads-1) {
 
             val begin = i * (limit / 10) + 1
             val end = (i + 1) * (limit / 10);
@@ -81,7 +81,7 @@ class AtomicLongCounter : Countable {
         val numberOfPrimes = AtomicInteger();
         val threadPool = Executors.newFixedThreadPool(numberOfThreads);
 
-        for (i in 0L..9L) {
+        for (i in 0L..numberOfThreads-1) {
             threadPool.submit {
                 var j = counter.get()
                 while (j < limit) {
@@ -105,7 +105,7 @@ class NotThreadsafeCounter : Countable {
         val numberOfPrimes = AtomicInteger();
         val threadPool = Executors.newFixedThreadPool(numberOfThreads);
 
-        for (i in 0L..9L) {
+        for (i in 0L..numberOfThreads-1) {
             threadPool.submit {
                 var j = counter.get()
                 while (j < limit) {
@@ -131,7 +131,7 @@ class ThreadsafeCounter : Countable {
         val numberOfPrimes = AtomicInteger();
         val threadPool = Executors.newFixedThreadPool(numberOfThreads);
 
-        for (i in 0L..9L) {
+        for (i in 0L..numberOfThreads-1) {
             threadPool.submit {
                 var j = counter.get()
                 while (j < limit) {
